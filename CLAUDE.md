@@ -66,23 +66,110 @@ A home telemetry system that streams data from a TP-Link TCB72 camera to a home 
 
 ## Architecture Notes
 
-These are confirmed decisions and findings from the risk/stack investigation session. The architecture discussion is ongoing in a separate session.
-
 ### Confirmed Stack Components
-- **MediaMTX**: Core infrastructure service (not just demo mode). Single RTSP consumer from camera; rebroadcasts to browser via WebRTC/HLS. Runs in Docker with `--network=host`.
+- **MediaMTX**: Core infrastructure service. Single RTSP consumer from camera; rebroadcasts to browser via HLS (v1) or WebRTC (post-demo). Runs in Docker with `--network=host`.
 - **Backend**: FastAPI (Python) — natural fit given pytapo is Python and ONVIF libraries are Python-native.
 - **Database**: PostgreSQL — implied by JSONB in event schema; correct choice.
-- **Event collector**: Separate background service connecting to camera via ONVIF directly by IP (not via RTSP, not via WS-Discovery). Runs continuously.
-- **Rolling buffer**: FFmpeg in segment mode, stream copy, .mkv output with rotation. Separate concern from the live viewer.
+- **Rolling buffer**: FFmpeg in segment mode, stream copy, .mkv output with rotation. Separate concern from the live viewer. Near-future requirement.
 - **All services run in Docker Compose** on headless Ubuntu. Services needing camera network access use `--network=host`.
 
-### In-Browser Video
-- WebRTC via MediaMTX is the target (sub-second latency)
-- HLS via MediaMTX is the fallback (2-6s latency, simpler to configure)
+### Architecture Diagram
+
+```mermaid
+graph LR
+    Browser["Browser\nHTML/JS UI"]
+
+    subgraph compose["Docker Compose — Ubuntu Server"]
+        App["app · FastAPI\nREST API + event poller\nserves static UI"]
+        DB[("db · PostgreSQL\nevents table")]
+        MTX["mediamtx · MediaMTX\nRTSP → HLS\n--network=host"]
+    end
+
+    Camera["TCB72 Camera\nRTSP :554 / pytapo HTTP"]
+    DemoFile["demo.mp4\nrepo asset"]
+
+    Browser -->|"GET /events, POST /ptz"| App
+    Browser -->|"HLS /hls/cam"| MTX
+    App -->|"SQL writes"| DB
+    App -->|"pytapo calls\nmocked in DEMO_MODE"| Camera
+    MTX -->|"RTSP pull on-demand"| Camera
+    DemoFile -.->|"DEMO_MODE=true"| MTX
+```
+
+### V1 / Demo Architecture (locked)
+Goal: working demo as fast as possible. These decisions are intentional tradeoffs, not oversights.
+
+- **3 containers only**: `app` (FastAPI), `db` (PostgreSQL), `mediamtx`
+- **pytapo is the sole camera API for v1**. ONVIF is deferred to post-demo production hardening. Risk accepted: pytapo may break on firmware updates.
+- **Event collector runs in-process** inside the FastAPI app as an asyncio background task. Separate container deferred to post-demo.
+- **HLS via MediaMTX** for browser video in v1. WebRTC deferred (simpler config, sufficient for demo).
+- **Demo mode** (`DEMO_MODE=true`): pytapo client swapped for a mock class emitting synthetic events on a timer; MediaMTX loops a local `.mp4` instead of camera RTSP; PTZ commands hit mock and return success.
+
+### V1 Build Order
+
+**Phase 1 — Infrastructure skeleton**
+- `docker-compose.yml` with all 3 containers, env var wiring, volume mounts
+- MediaMTX config: loops `demo.mp4` as HLS at `/hls/cam`
+- FastAPI boots with `GET /health` returning 200
+- PostgreSQL up with schema from `db/init.sql`
+- ✅ Done when: `docker-compose up` runs clean; `curl localhost:8000/health` returns `{"status":"ok"}`; `curl localhost:8888/hls/cam/index.m3u8` returns an HLS playlist
+
+**Phase 2 — Video + UI shell**
+- Static HTML/JS served from FastAPI at `/`
+- Video player consuming HLS from MediaMTX
+- Two-column layout matching `ui-mockup.html`
+- Header with Live/Offline badge and Demo Mode indicator
+- Video overlays: protocol+resolution label (bottom-left), wall clock (bottom-right), mute toggle (top-right)
+- PTZ d-pad rendered but not yet wired to backend
+- ✅ Done when: browser at `localhost:8000` shows looping demo video with correct layout; mute toggle works; clock ticks
+
+**Phase 3 — Events**
+- `GET /events` endpoint with `type`, `limit`, `offset` query params
+- Mock event generator running as asyncio background task (see Mock Event Spec)
+- Event log in UI polling `/events` every 5s
+- Filter chips (All / Motion / Person) functional
+- CSV export downloads filtered set
+- ✅ Done when: events appear in UI within 30s of startup; filter chips show correct subsets; CSV download contains correct rows and columns
+
+**Phase 4 — PTZ controls**
+- `POST /ptz` endpoint; mock handler logs direction and returns `{"status":"ok"}`
+- D-pad buttons wired; each fires correct direction; center fires `home`
+- ✅ Done when: each button click produces a `200 {"status":"ok"}` response visible in browser dev tools
+
+**Phase 5 — Live camera**
+- Swap mock camera client for real pytapo using env vars
+- MediaMTX pointed at real RTSP URL via `CAMERA_IP` / `CAMERA_USER` / `CAMERA_PASSWORD`
+- `DEMO_MODE=false` in `.env`
+- ✅ Done when: real camera feed appears in browser; real motion events appear in event log; PTZ buttons physically move the camera
+
+### Mock Event Spec
+
+The asyncio background task in `collector.py` emits synthetic events when `DEMO_MODE=true`. Rules:
+
+- **Interval**: random 10-20 seconds between events
+- **Mix**: 70% `motion`, 30% `person`
+- **device_id**: `"tcb72-demo"`
+- **timestamp**: UTC now at time of insertion
+- **details payload by type:**
+
+```json
+// motion
+{ "confidence": 0.85, "zone": "full_frame" }
+
+// person
+{ "confidence": 0.92, "count": 1 }
+```
+
+The same `collector.py` module is used in live mode — only the camera client it calls is swapped. The DB write path is identical in both modes.
+
+### Post-Demo Upgrades
+- Swap ONVIF in as primary for motion events and PTZ (retire pytapo dependency)
+- Extract event collector into a separate container
+- Upgrade HLS to WebRTC for sub-second latency
+- Add rolling 30-min buffer (requirement 9)
 
 ### On-Demand Streaming
 - MediaMTX supports on-demand RTSP pulling (only connects to camera when a browser client is active)
-- Event collector uses ONVIF independently and does not hold an RTSP stream open
 - This satisfies the requirement to not stream in the background when no user is present
 
 ## UI Design
@@ -116,6 +203,107 @@ Reference mockup: `ui-mockup.html` in the repo root. Open in a browser for a liv
 - Event type colors: Person = blue, Motion = amber.
 - Footer shows total event count for the active filter.
 
+## Repo Structure
+
+```
+home-telemetry-analytics/
+├── docker-compose.yml
+├── .env.example
+├── CLAUDE.md                     # must stay in root — Claude Code reads it from here
+├── demo.mp4                      # pre-recorded demo video (gitignored if >100MB)
+├── docs/
+│   ├── ui-mockup.html            # UI reference mockup, open in browser for live preview
+│   ├── claude_readme.md          # onboarding guide for new machines
+│   ├── hta_mockups_architecture.drawio
+│   └── p_hta.skill               # Cowork skill file
+├── app/
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   ├── main.py                   # FastAPI entry point, mounts router + starts background task
+│   ├── api/
+│   │   ├── events.py             # GET /events
+│   │   └── ptz.py                # POST /ptz
+│   ├── camera/
+│   │   ├── client.py             # pytapo wrapper (live mode)
+│   │   └── mock.py               # mock client (DEMO_MODE=true)
+│   ├── collector.py              # asyncio background task — polls camera, writes to DB
+│   ├── db.py                     # DB connection + query helpers
+│   ├── models.py                 # Pydantic models shared by API and DB
+│   └── static/
+│       ├── index.html            # single-page UI
+│       ├── app.js                # UI logic (video player, event log, PTZ controls)
+│       └── style.css
+├── mediamtx/
+│   └── mediamtx.yml              # MediaMTX config (RTSP source, HLS output)
+└── db/
+    └── init.sql                  # PostgreSQL schema (run on first container start)
+```
+
+## API Reference
+
+### GET /events
+Returns all events from the database, optionally filtered.
+
+**Query parameters:**
+- `type` — `motion` | `person` | `all` (default: `all`)
+- `limit` — integer, max rows returned (default: `200`)
+- `offset` — integer, pagination offset (default: `0`)
+
+**Response:**
+```json
+{
+  "events": [
+    {
+      "event_id": "uuid",
+      "timestamp": "2024-01-15T10:30:00Z",
+      "device_id": "tcb72-01",
+      "event_type": "motion",
+      "details": { "confidence": 0.85, "zone": "full_frame" }
+    }
+  ],
+  "total": 42
+}
+```
+
+### POST /ptz
+Sends a pan/tilt command to the camera (or mock in DEMO_MODE).
+
+**Request body:**
+```json
+{ "direction": "up" }
+```
+`direction` must be one of: `up` | `down` | `left` | `right` | `home`
+
+**Response:**
+```json
+{ "status": "ok" }
+```
+
+### GET /health
+Returns app status. Used by the UI to set the Live/Offline badge.
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "demo_mode": true,
+  "camera_connected": false
+}
+```
+
+## Environment Variables
+
+Defined in `.env`, templated in `.env.example`. All camera vars are ignored when `DEMO_MODE=true`.
+
+| Variable | Default | Notes |
+|---|---|---|
+| `DEMO_MODE` | `false` | Set `true` to use mock camera + demo.mp4 |
+| `DATABASE_URL` | `postgresql://hta:hta@db:5432/hta` | Matches docker-compose db service |
+| `CAMERA_IP` | — | Local IP of TCB72 on your network |
+| `CAMERA_USER` | — | Camera account username (not Tapo login) |
+| `CAMERA_PASSWORD` | — | Camera account password |
+| `MEDIAMTX_INTERNAL_URL` | `http://mediamtx:9997` | MediaMTX API, used for health checks |
+
 ## Application Requirements
 
 ### Core (Current)
@@ -146,4 +334,4 @@ Reference mockup: `ui-mockup.html` in the repo root. Open in a browser for a liv
 - [ ] RTSP stream verified (e.g., via VLC)
 - [ ] ONVIF connectivity verified
 - [ ] pytapo compatibility with TCB72 tested
-- [ ] Application architecture defined
+- [x] Application architecture defined (V1/demo architecture locked — see Architecture Notes)
