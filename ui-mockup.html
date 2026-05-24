@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Home Telemetry — Dashboard Mockup</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+      background: #f0efe8;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 32px 16px;
+      min-height: 100vh;
+      color: #1a1a18;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 860px;
+      border: 0.5px solid rgba(0,0,0,0.15);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    /* Header */
+    .header {
+      background: #f8f8f6;
+      border-bottom: 0.5px solid rgba(0,0,0,0.15);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header-title { font-weight: 500; font-size: 14px; color: #1a1a18; }
+    .header-sep { font-size: 13px; color: rgba(0,0,0,0.25); }
+    .header-device { font-size: 13px; color: #5f5e5a; }
+
+    .badge-live {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 10px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 500;
+      background: #eaf3de;
+      color: #3b6d11;
+    }
+    .badge-live-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #639922;
+    }
+    .badge-demo {
+      margin-left: auto;
+      padding: 2px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 500;
+      background: #faeeda;
+      color: #854f0b;
+    }
+
+    /* Body */
+    .body {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+    }
+
+    /* Left */
+    .left { border-right: 0.5px solid rgba(0,0,0,0.15); }
+
+    .video-panel {
+      background: #111;
+      height: 248px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .video-play-icon { font-size: 38px; color: rgba(255,255,255,0.2); }
+    .video-meta-left {
+      position: absolute;
+      bottom: 8px;
+      left: 10px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.35);
+      font-family: monospace;
+    }
+    .video-clock {
+      position: absolute;
+      bottom: 8px;
+      right: 10px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.35);
+      font-family: monospace;
+    }
+    .mute-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(0,0,0,0.5);
+      border: 0.5px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      color: rgba(255,255,255,0.7);
+      padding: 5px 7px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .mute-btn:hover { background: rgba(0,0,0,0.7); }
+
+    .controls-panel {
+      padding: 14px 16px 16px;
+      border-top: 0.5px solid rgba(0,0,0,0.15);
+    }
+    .controls-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: #5f5e5a;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .dpad {
+      display: inline-grid;
+      grid-template-columns: repeat(3, 36px);
+      grid-template-rows: repeat(3, 36px);
+      gap: 4px;
+    }
+    .dpad button {
+      background: transparent;
+      border: 0.5px solid rgba(0,0,0,0.3);
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      color: #1a1a18;
+      transition: background 0.1s;
+    }
+    .dpad button:hover { background: #f8f8f6; }
+    .dpad button:active { transform: scale(0.96); }
+
+    /* Right — event log */
+    .right { display: flex; flex-direction: column; }
+
+    .log-header {
+      padding: 10px 12px 8px;
+      border-bottom: 0.5px solid rgba(0,0,0,0.15);
+    }
+    .log-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .log-title { font-size: 13px; font-weight: 500; color: #1a1a18; }
+
+    .csv-btn {
+      font-size: 12px;
+      padding: 3px 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: transparent;
+      border: 0.5px solid rgba(0,0,0,0.3);
+      border-radius: 8px;
+      cursor: pointer;
+      color: #1a1a18;
+      font-family: inherit;
+    }
+    .csv-btn:hover { background: #f8f8f6; }
+
+    .filter-chips { display: flex; gap: 4px; }
+    .chip {
+      font-size: 11px;
+      padding: 2px 9px;
+      border-radius: 99px;
+      cursor: pointer;
+      border: 0.5px solid rgba(0,0,0,0.15);
+      background: transparent;
+      color: #5f5e5a;
+      font-family: inherit;
+    }
+    .chip:hover { background: #f8f8f6; }
+    .chip.active {
+      background: #e6f1fb;
+      color: #185fa5;
+      border-color: transparent;
+    }
+
+    .event-list { overflow-y: auto; max-height: 290px; }
+    .event-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 12px;
+      border-bottom: 0.5px solid rgba(0,0,0,0.1);
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .event-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .event-dt {
+      font-family: monospace;
+      font-size: 10px;
+      color: #5f5e5a;
+      flex-shrink: 0;
+    }
+    .event-badge {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 99px;
+      flex-shrink: 0;
+    }
+    .badge-person { background: #e6f1fb; color: #185fa5; }
+    .badge-motion { background: #faeeda; color: #854f0b; }
+    .dot-person { background: #378add; }
+    .dot-motion { background: #ef9f27; }
+
+    .log-footer {
+      padding: 7px 12px;
+      border-top: 0.5px solid rgba(0,0,0,0.15);
+      margin-top: auto;
+    }
+    .log-footer span { font-size: 11px; color: #888780; }
+  </style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <i class="ti ti-eye" aria-hidden="true" style="font-size:17px; color:#5f5e5a;"></i>
+    <span class="header-title">Home telemetry</span>
+    <span class="header-sep">/</span>
+    <span class="header-device">TCB72_1</span>
+    <span class="badge-live">
+      <span class="badge-live-dot"></span>
+      Live
+    </span>
+    <span class="badge-demo">Demo mode</span>
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+
+    <!-- Left: video + controls -->
+    <div class="left">
+
+      <div class="video-panel">
+        <i class="ti ti-player-play video-play-icon" aria-hidden="true"></i>
+        <span class="video-meta-left">WebRTC · stream1 · 2K</span>
+        <span class="video-clock" id="clock">--:--:--</span>
+        <button class="mute-btn" id="mute-btn" onclick="toggleMute()" aria-label="Unmute audio">
+          <i class="ti ti-volume-3" id="mute-icon" aria-hidden="true" style="font-size:14px;"></i>
+          <span id="mute-label">Muted</span>
+        </button>
+      </div>
+
+      <div class="controls-panel">
+        <p class="controls-label">
+          <i class="ti ti-arrows-move" aria-hidden="true" style="font-size:14px;"></i>
+          Camera control
+        </p>
+        <div class="dpad">
+          <span></span>
+          <button aria-label="Tilt up"><i class="ti ti-chevron-up" aria-hidden="true"></i></button>
+          <span></span>
+          <button aria-label="Pan left"><i class="ti ti-chevron-left" aria-hidden="true"></i></button>
+          <button aria-label="Home position" title="Return to home position" style="font-size:13px;"><i class="ti ti-home" aria-hidden="true"></i></button>
+          <button aria-label="Pan right"><i class="ti ti-chevron-right" aria-hidden="true"></i></button>
+          <span></span>
+          <button aria-label="Tilt down"><i class="ti ti-chevron-down" aria-hidden="true"></i></button>
+          <span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: event log -->
+    <div class="right">
+
+      <div class="log-header">
+        <div class="log-header-row">
+          <span class="log-title">Event log</span>
+          <button class="csv-btn" aria-label="Download full event log as CSV">
+            <i class="ti ti-download" aria-hidden="true" style="font-size:13px;"></i> CSV
+          </button>
+        </div>
+        <div class="filter-chips" role="group" aria-label="Filter by event type">
+          <button class="chip active" id="f-all" onclick="doFilter('all')">All</button>
+          <button class="chip" id="f-motion" onclick="doFilter('motion')">Motion</button>
+          <button class="chip" id="f-person" onclick="doFilter('person')">Person</button>
+        </div>
+      </div>
+
+      <div class="event-list" id="evts"></div>
+
+      <div class="log-footer">
+        <span id="evt-count"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const evts = [
+    {dt:'2026-05-24 14:31:02', type:'person'},
+    {dt:'2026-05-24 14:28:47', type:'motion'},
+    {dt:'2026-05-24 14:12:03', type:'person'},
+    {dt:'2026-05-24 13:58:21', type:'motion'},
+    {dt:'2026-05-24 13:26:43', type:'person'},
+    {dt:'2026-05-24 13:22:43', type:'person'},
+    {dt:'2026-05-24 12:44:09', type:'motion'},
+    {dt:'2026-05-23 21:05:33', type:'person'},
+    {dt:'2026-05-23 18:47:12', type:'motion'},
+    {dt:'2026-05-23 09:13:55', type:'person'},
+    {dt:'2026-05-22 22:31:08', type:'motion'},
+    {dt:'2026-05-22 17:04:44', type:'person'},
+    {dt:'2026-05-21 08:52:19', type:'person'},
+  ];
+
+  function render(f) {
+    const list = document.getElementById('evts');
+    const items = f === 'all' ? evts : evts.filter(e => e.type === f);
+    document.getElementById('evt-count').textContent = items.length + ' events total';
+    list.innerHTML = items.map(e => `
+      <div class="event-row">
+        <span class="event-dot dot-${e.type}"></span>
+        <span class="event-dt">${e.dt}</span>
+        <span class="event-badge badge-${e.type}">${e.type === 'person' ? 'Person detected' : 'Motion detected'}</span>
+      </div>
+    `).join('');
+  }
+
+  function doFilter(f) {
+    document.querySelectorAll('.chip').forEach(b => b.classList.remove('active'));
+    document.getElementById('f-' + f).classList.add('active');
+    render(f);
+  }
+
+  let muted = true;
+  function toggleMute() {
+    muted = !muted;
+    document.getElementById('mute-icon').className = (muted ? 'ti ti-volume-3' : 'ti ti-volume') + ' aria-hidden="true"';
+    document.getElementById('mute-icon').className = muted ? 'ti ti-volume-3' : 'ti ti-volume';
+    document.getElementById('mute-label').textContent = muted ? 'Muted' : 'Audio on';
+    document.getElementById('mute-btn').setAttribute('aria-label', muted ? 'Unmute audio' : 'Mute audio');
+  }
+
+  render('all');
+
+  setInterval(() => {
+    document.getElementById('clock').textContent = new Date().toTimeString().slice(0,8);
+  }, 1000);
+</script>
+
+</body>
+</html>

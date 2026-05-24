@@ -85,6 +85,37 @@ These are confirmed decisions and findings from the risk/stack investigation ses
 - Event collector uses ONVIF independently and does not hold an RTSP stream open
 - This satisfies the requirement to not stream in the background when no user is present
 
+## UI Design
+
+Reference mockup: `ui-mockup.html` in the repo root. Open in a browser for a live preview.
+
+### Layout
+- Single-page application — no navigation, everything on one screen.
+- Two-column layout: video panel + PTZ controls (left), event log (right, fixed ~280px wide).
+- Header: app name, device name, connection status badge (Live/Offline), demo mode indicator.
+
+### Header
+- Connection status shown as a colored pill badge (green = Live, appropriate color for Offline).
+- When `DEMO_MODE=true`, a "Demo mode" badge is visible in the header at all times.
+
+### Video Panel
+- Video occupies the full left column width above the PTZ controls.
+- Overlay (bottom-left): stream protocol and resolution label (e.g., `WebRTC · stream1 · 2K`).
+- Overlay (bottom-right): live wall clock (HH:MM:SS).
+- Overlay (top-right): mute/unmute toggle button. Default state: muted.
+
+### PTZ Controls
+- D-pad grid: up, down, left, right arrow buttons plus a center home-position button.
+- Sits directly below the video panel, left-aligned.
+
+### Event Log
+- Displays all historical events from the database (not session-scoped).
+- Filter chips at top: All, Motion, Person. Default: All.
+- CSV export button exports the currently filtered set.
+- Each row is a single line: colored dot indicator + full timestamp (`YYYY-MM-DD HH:MM:SS` in monospace) + event type badge.
+- Event type colors: Person = blue, Motion = amber.
+- Footer shows total event count for the active filter.
+
 ## Application Requirements
 
 ### Core (Current)
@@ -92,10 +123,10 @@ These are confirmed decisions and findings from the risk/stack investigation ses
 1. Application shall be hosted on a headless Ubuntu server, running in Docker containers.
 2. The application supports a single camera instance.
 3. The application shall include a background event collector service that runs continuously, polling ONVIF/pytapo for motion events and camera state changes, and logging them to a database.
-4. The application shall include a stream viewer that displays live video and audio from the camera via RTSP.
+4. The application shall include a stream viewer that displays live video and audio from the camera via RTSP. Audio shall be muted by default, with a mute/unmute toggle overlaid on the video panel. No fullscreen toggle is required.
 5. The event log shall store all captured events with the following schema: `event_id` (PK), `timestamp`, `device_id`, `event_type`, `details` (JSON/JSONB).
-6. The application shall provide a web UI, accessible from another computer on the network, that displays the event log.
-7. The application shall allow manual pan/tilt control of the camera via the web UI.
+6. The application shall provide a web UI, accessible from another computer on the network, that displays the full historical event log (all events ever recorded, not session-scoped). The event log shall support filtering by event type (e.g., All / Motion / Person) and CSV export of the visible filtered set. Each row displays timestamp (full date and time, `YYYY-MM-DD HH:MM:SS`) and event type as a color-coded badge, one row per event.
+7. The application shall allow manual pan/tilt control of the camera via the web UI using a D-pad style control (up, down, left, right) with a center button to return the camera to its home position.
 8. The application shall include a demo mode, configurable via an environment variable (e.g., `DEMO_MODE=true`), that substitutes a pre-recorded RTSP stream (served via MediaMTX) and mocks ONVIF responses, making the full application demonstrable without a physical camera.
 
 ### Near-Future
