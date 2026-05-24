@@ -48,12 +48,10 @@ A home telemetry system that streams data from a TP-Link TCB72 camera to a home 
 - SD card + Tapo Care + ONVIF/NVR cannot all run simultaneously; pick two
 - Tapo cameras expect API messages in sequential order; parallel calls cause auth errors
 
-## Status
+## Application Requirements
 
-- [ ] Camera connected to local network
-- [ ] Camera account created in Tapo app
-- [ ] Third-Party Compatibility enabled
-- [ ] RTSP stream verified (e.g., via VLC)
-- [ ] ONVIF connectivity verified
-- [ ] pytapo compatibility with TCB72 tested
-- [ ] Application architecture defined
+### Core (Current)
+
+1. Application shall be hosted on a headless Ubuntu server, running in Docker containers.
+2. The application supports a single camera instance.
+3. The application shall include a background event collector service that runs continuously, pollin
