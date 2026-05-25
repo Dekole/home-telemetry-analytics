@@ -28,11 +28,9 @@ A home telemetry system that streams data from a TP-Link TCB72 camera to a home 
 ### pytapo (Unofficial Python Library)
 - Repo: https://github.com/JurajNyiri/pytapo
 - Reverse-engineered Tapo protocol; no official API backing
-- TCB72 is **not explicitly listed** in confirmed supported models
-- Confirmed models are C-series and TC-series cameras
-- Likely compatible since TCB72 is Tapo-based, but treat as unverified until tested
+- TCB72 compatibility **confirmed** via direct testing (2026-05-25)
 - Provides: camera controls, motion event queries, PTZ, SD card recording downloads, privacy mode, reboot
-- **Risk**: Tapo firmware updates have historically broken pytapo (encryption protocol change in late 2024 is a documented example). Treat as supplemental layer only; ONVIF is the primary path for motion events and PTZ.
+- **Risk**: Tapo firmware updates have historically broken pytapo (encryption protocol change in late 2024 is a documented example). Treat as supplemental layer only; ONVIF is the primary path for motion events and PTZ post-demo.
 
 ### MediaMTX (Protocol Bridge and Stream Server)
 - Repo: https://github.com/bluenviron/mediamtx — open source, MIT license, free
@@ -86,83 +84,69 @@ graph LR
     end
 
     Camera["TCB72 Camera\nRTSP :554 / pytapo HTTP"]
-    DemoFile["demo.mp4\nrepo asset"]
 
     Browser -->|"GET /events, POST /ptz"| App
-    Browser -->|"HLS /hls/cam"| MTX
+    Browser -->|"HLS /cam"| MTX
     App -->|"SQL writes"| DB
-    App -->|"pytapo calls\nmocked in DEMO_MODE"| Camera
+    App -->|"pytapo calls"| Camera
     MTX -->|"RTSP pull on-demand"| Camera
-    DemoFile -.->|"DEMO_MODE=true"| MTX
 ```
 
-### V1 / Demo Architecture (locked)
-Goal: working demo as fast as possible. These decisions are intentional tradeoffs, not oversights.
+### V1 Architecture (locked)
+Goal: working system as fast as possible. These decisions are intentional tradeoffs, not oversights.
 
 - **3 containers only**: `app` (FastAPI), `db` (PostgreSQL), `mediamtx`
-- **pytapo is the sole camera API for v1**. ONVIF is deferred to post-demo production hardening. Risk accepted: pytapo may break on firmware updates.
-- **Event collector runs in-process** inside the FastAPI app as an asyncio background task. Separate container deferred to post-demo.
-- **HLS via MediaMTX** for browser video in v1. WebRTC deferred (simpler config, sufficient for demo).
-- **Demo mode** (`DEMO_MODE=true`): pytapo client swapped for a mock class emitting synthetic events on a timer; MediaMTX loops a local `.mp4` instead of camera RTSP; PTZ commands hit mock and return success.
+- **pytapo is the sole camera API for v1**. ONVIF is deferred to post-v1 production hardening. pytapo confirmed working with TCB72 (2026-05-25); firmware-update risk remains but is no longer an unknown.
+- **Event collector runs in-process** inside the FastAPI app as an asyncio background task. Separate container deferred post-v1.
+- **HLS via MediaMTX** for browser video in v1. WebRTC deferred (simpler config, sufficient for v1).
+- **No demo mode** — the collector always connects to the real camera. No mock client, no DEMO_MODE flag.
 
 ### V1 Build Order
 
-**Phase 1 — Infrastructure skeleton**
+**Phase 1 — Infrastructure skeleton** ✅ Complete (2026-05-25)
 - `docker-compose.yml` with all 3 containers, env var wiring, volume mounts
-- MediaMTX config: loops `demo.mp4` as HLS at `/hls/cam`
+- MediaMTX config: loops `demo.mp4` as HLS at `/cam`
 - FastAPI boots with `GET /health` returning 200
 - PostgreSQL up with schema from `db/init.sql`
-- ✅ Done when: `docker-compose up` runs clean; `curl localhost:8000/health` returns `{"status":"ok"}`; `curl localhost:8888/hls/cam/index.m3u8` returns an HLS playlist
+- ✅ Done when: `docker-compose up` runs clean; `curl localhost:8000/health` returns `{"status":"ok"}`; `curl localhost:8888/cam/index.m3u8` returns an HLS playlist
 
-**Phase 2 — Video + UI shell**
-- Static HTML/JS served from FastAPI at `/`
-- Video player consuming HLS from MediaMTX
-- Two-column layout matching `ui-mockup.html`
-- Header with Live/Offline badge and Demo Mode indicator
-- Video overlays: protocol+resolution label (bottom-left), wall clock (bottom-right), mute toggle (top-right)
-- PTZ d-pad rendered but not yet wired to backend
-- ✅ Done when: browser at `localhost:8000` shows looping demo video with correct layout; mute toggle works; clock ticks
-
-**Phase 3 — Events**
+**Phase 2 — Event backend**
+- `camera/client.py` pytapo wrapper: connects to camera, calls `cam.getEvents()` on each poll
+- `collector.py` asyncio background task: polls `getEvents()` every 10s, deduplicates by `start_time`, writes new events to DB
 - `GET /events` endpoint with `type`, `limit`, `offset` query params
-- Mock event generator running as asyncio background task (see Mock Event Spec)
-- Event log in UI polling `/events` every 5s
+- `models.py` Pydantic models
+- Event detection: `cam.getEvents()` calls `searchDetectionList` with a 10-min lookback window; returns list of raw event dicts with `start_time`, `end_time`, plus camera-native fields stored wholesale as `details` JSONB
+- Event type: map to `'motion'` for now (person detection is disabled on the TCB72 in current camera config)
+- ✅ Done when: `curl localhost:8000/events` returns events within 30s of motion in front of camera; no UI required
+
+**Phase 3 — UI shell + Event log** (no video yet)
+- Static HTML/JS served from FastAPI at `/`
+- Two-column layout matching `ui-mockup.html`; left column has a placeholder where video will go
+- Header with Live/Offline badge and Demo Mode indicator
+- Event log polling `/events` every 5s
 - Filter chips (All / Motion / Person) functional
 - CSV export downloads filtered set
-- ✅ Done when: events appear in UI within 30s of startup; filter chips show correct subsets; CSV download contains correct rows and columns
+- PTZ d-pad rendered but not yet wired to backend
+- ✅ Done when: browser at `localhost:8000` shows layout; events populate within 30s; filter chips show correct subsets; CSV download works
 
-**Phase 4 — PTZ controls**
+**Phase 4 — Video display** (isolated)
+- Update MediaMTX config: replace ffmpeg demo.mp4 loop with `source: rtsp://<user>:<pass>@<camera_ip>:554/stream1` (on-demand pull)
+- HLS video player in the left panel consuming `localhost:8888/cam/index.m3u8`
+- Video overlays: stream protocol+resolution label (bottom-left), wall clock (bottom-right), mute toggle (top-right)
+- ✅ Done when: live camera feed appears in browser with correct overlays; mute toggle works; clock ticks
+
+**Phase 5 — PTZ controls**
 - `POST /ptz` endpoint; mock handler logs direction and returns `{"status":"ok"}`
 - D-pad buttons wired; each fires correct direction; center fires `home`
 - ✅ Done when: each button click produces a `200 {"status":"ok"}` response visible in browser dev tools
 
-**Phase 5 — Live camera**
+**Phase 6 — Live camera**
 - Swap mock camera client for real pytapo using env vars
 - MediaMTX pointed at real RTSP URL via `CAMERA_IP` / `CAMERA_USER` / `CAMERA_PASSWORD`
 - `DEMO_MODE=false` in `.env`
 - ✅ Done when: real camera feed appears in browser; real motion events appear in event log; PTZ buttons physically move the camera
 
-### Mock Event Spec
-
-The asyncio background task in `collector.py` emits synthetic events when `DEMO_MODE=true`. Rules:
-
-- **Interval**: random 10-20 seconds between events
-- **Mix**: 70% `motion`, 30% `person`
-- **device_id**: `"tcb72-demo"`
-- **timestamp**: UTC now at time of insertion
-- **details payload by type:**
-
-```json
-// motion
-{ "confidence": 0.85, "zone": "full_frame" }
-
-// person
-{ "confidence": 0.92, "count": 1 }
-```
-
-The same `collector.py` module is used in live mode — only the camera client it calls is swapped. The DB write path is identical in both modes.
-
-### Post-Demo Upgrades
+### Post-V1 Upgrades
 - Swap ONVIF in as primary for motion events and PTZ (retire pytapo dependency)
 - Extract event collector into a separate container
 - Upgrade HLS to WebRTC for sub-second latency
@@ -297,12 +281,11 @@ Defined in `.env`, templated in `.env.example`. All camera vars are ignored when
 
 | Variable | Default | Notes |
 |---|---|---|
-| `DEMO_MODE` | `false` | Set `true` to use mock camera + demo.mp4 |
 | `DATABASE_URL` | `postgresql://hta:hta@db:5432/hta` | Matches docker-compose db service |
 | `CAMERA_IP` | — | Local IP of TCB72 on your network |
 | `CAMERA_USER` | — | Camera account username (not Tapo login) |
 | `CAMERA_PASSWORD` | — | Camera account password |
-| `MEDIAMTX_INTERNAL_URL` | `http://mediamtx:9997` | MediaMTX API, used for health checks |
+| `MEDIAMTX_INTERNAL_URL` | `http://host.docker.internal:9997` | MediaMTX API, used for health checks |
 
 ## Application Requirements
 
@@ -315,7 +298,6 @@ Defined in `.env`, templated in `.env.example`. All camera vars are ignored when
 5. The event log shall store all captured events with the following schema: `event_id` (PK), `timestamp`, `device_id`, `event_type`, `details` (JSON/JSONB).
 6. The application shall provide a web UI, accessible from another computer on the network, that displays the full historical event log (all events ever recorded, not session-scoped). The event log shall support filtering by event type (e.g., All / Motion / Person) and CSV export of the visible filtered set. Each row displays timestamp (full date and time, `YYYY-MM-DD HH:MM:SS`) and event type as a color-coded badge, one row per event.
 7. The application shall allow manual pan/tilt control of the camera via the web UI using a D-pad style control (up, down, left, right) with a center button to return the camera to its home position.
-8. The application shall include a demo mode, configurable via an environment variable (e.g., `DEMO_MODE=true`), that substitutes a pre-recorded RTSP stream (served via MediaMTX) and mocks ONVIF responses, making the full application demonstrable without a physical camera.
 
 ### Near-Future
 
@@ -333,5 +315,5 @@ Defined in `.env`, templated in `.env.example`. All camera vars are ignored when
 - [ ] Third-Party Compatibility enabled
 - [ ] RTSP stream verified (e.g., via VLC)
 - [ ] ONVIF connectivity verified
-- [ ] pytapo compatibility with TCB72 tested
+- [x] pytapo compatibility with TCB72 tested (confirmed 2026-05-25)
 - [x] Application architecture defined (V1/demo architecture locked — see Architecture Notes)
