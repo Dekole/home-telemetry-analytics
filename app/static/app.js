@@ -76,6 +76,41 @@ setInterval(() => {
   document.getElementById('clock').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }, 1000);
 
+// Video player
+const HLS_URL = `http://${window.location.hostname}:8888/cam/index.m3u8`;
+
+function initPlayer() {
+  const video = document.getElementById('video');
+  const placeholder = document.getElementById('video-placeholder');
+
+  video.addEventListener('playing', () => {
+    video.style.display = 'block';
+    placeholder.style.display = 'none';
+  });
+
+  if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = HLS_URL;
+    video.play().catch(() => {});
+  } else if (window.Hls && Hls.isSupported()) {
+    const hls = new Hls();
+    hls.loadSource(HLS_URL);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      video.play().catch(() => {});
+    });
+  }
+}
+
+document.getElementById('mute-btn').addEventListener('click', () => {
+  const video = document.getElementById('video');
+  video.muted = !video.muted;
+  const muted = video.muted;
+  document.getElementById('mute-icon').className = muted ? 'ti ti-volume-3' : 'ti ti-volume';
+  document.getElementById('mute-label').textContent = muted ? 'Muted' : 'Audio on';
+  document.getElementById('mute-btn').setAttribute('aria-label', muted ? 'Unmute audio' : 'Mute audio');
+});
+
+initPlayer();
 fetchHealth();
 fetchEvents();
 setInterval(fetchEvents, 5000);

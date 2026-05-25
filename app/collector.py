@@ -12,6 +12,7 @@ DEVICE_ID = "tcb72-01"
 POLL_INTERVAL = 10
 
 _seen_start_times: set[int] = set()
+camera_connected: bool = False
 
 
 async def _load_seen_from_db() -> None:
@@ -61,7 +62,9 @@ async def run_collector() -> None:
     logger.info("Event collector started, polling every %ds", POLL_INTERVAL)
     while True:
         try:
+            global camera_connected
             events = await get_events()
+            camera_connected = True
             new_count = 0
             for event in events:
                 st = event.get("start_time")
@@ -73,5 +76,6 @@ async def run_collector() -> None:
             if new_count:
                 logger.info("Wrote %d new event(s)", new_count)
         except Exception:
+            camera_connected = False
             logger.exception("Collector poll failed")
         await asyncio.sleep(POLL_INTERVAL)

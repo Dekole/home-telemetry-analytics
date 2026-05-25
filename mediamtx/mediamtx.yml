@@ -1,37 +1,19 @@
-# MediaMTX v1.x configuration for home-telemetry-analytics
-# Docs: https://github.com/bluenviron/mediamtx
+# MediaMTX configuration for home-telemetry-analytics
 
-# RTSP server — internal, used by ffmpeg to publish the demo file loop
 rtsp: true
 rtspAddress: :8556
 rtspTransports: [tcp]
 
-# HLS server — browser-accessible at http://<host>:8888/cam/index.m3u8
 hls: true
 hlsAddress: :8888
 hlsAllowOrigins: ['*']
 
-# REST API — used by the app container for health checks
 api: true
 apiAddress: :9997
 
-# Disable unused protocol servers to avoid port conflicts
 rtmp: false
 srt: false
 webrtc: false
 
 paths:
-  cam:
-    # Demo mode: loop demo.mp4 via ffmpeg and publish as RTSP to this path.
-    # ffmpeg reads the file, loops it indefinitely, pushes to localhost:8554/cam.
-    # MediaMTX reserialises it as HLS for browser clients.
-    # Live mode: replace runOnInit with source: rtsp://<user>:<pass>@<camera_ip>:554/stream1
-    runOnInit: >
-      ffmpeg
-      -re
-      -stream_loop -1
-      -i /demo.mp4
-      -c copy
-      -f rtsp
-      rtsp://127.0.0.1:8556/cam
-    runOnInitRestart: yes
+  cam: {}

@@ -6,6 +6,7 @@
   <title>Home Telemetry</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
   <link rel="stylesheet" href="/static/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
 </head>
 <body>
 
@@ -27,7 +28,8 @@
 
     <div class="left">
       <div class="video-panel">
-        <i class="ti ti-player-play video-play-icon" aria-hidden="true"></i>
+        <video id="video" autoplay muted playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;"></video>
+        <div id="video-placeholder"><i class="ti ti-player-play video-play-icon" aria-hidden="true"></i></div>
         <span class="video-meta-left">HLS · stream1 · 2K</span>
         <span class="video-clock" id="clock">--:--:--</span>
         <button class="mute-btn" id="mute-btn" aria-label="Unmute audio">

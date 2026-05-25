@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse
 
 import db
 from api.events import router as events_router
+import collector
 from collector import run_collector
 
 load_dotenv()
@@ -35,7 +36,7 @@ async def health():
     return {
         "status": "ok",
         "demo_mode": os.getenv("DEMO_MODE", "false").lower() == "true",
-        "camera_connected": False,
+        "camera_connected": collector.camera_connected,
     }
 
 

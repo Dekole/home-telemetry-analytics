@@ -36,9 +36,11 @@ services:
   mediamtx:
     image: bluenviron/mediamtx:latest-ffmpeg
     network_mode: host
+    environment:
+      - MTX_PATHS_CAM_SOURCE=rtsp://${RTSP_USER}:${RTSP_PASSWORD}@${CAMERA_IP}:554/stream1
+      - MTX_PATHS_CAM_SOURCEONDEMAND=yes
     volumes:
       - ./mediamtx/mediamtx.yml:/mediamtx.yml:ro
-      - ./demo.mp4:/demo.mp4:ro
     restart: unless-stopped
 
 volumes:
