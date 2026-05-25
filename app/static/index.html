@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Home Telemetry</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<div class="app">
+
+  <div class="header">
+    <i class="ti ti-eye" aria-hidden="true" style="font-size:17px; color:#5f5e5a;"></i>
+    <span class="header-title">Home telemetry</span>
+    <span class="header-sep">/</span>
+    <span class="header-device">TCB72-1</span>
+    <span class="badge-live" id="status-badge">
+      <span class="badge-live-dot" id="status-dot"></span>
+      <span id="status-label">Connecting</span>
+    </span>
+    <span class="badge-demo" id="demo-badge" style="display:none;">Demo mode</span>
+  </div>
+
+  <div class="body">
+
+    <div class="left">
+      <div class="video-panel">
+        <i class="ti ti-player-play video-play-icon" aria-hidden="true"></i>
+        <span class="video-meta-left">HLS · stream1 · 2K</span>
+        <span class="video-clock" id="clock">--:--:--</span>
+        <button class="mute-btn" id="mute-btn" aria-label="Unmute audio">
+          <i class="ti ti-volume-3" id="mute-icon" aria-hidden="true" style="font-size:14px;"></i>
+          <span id="mute-label">Muted</span>
+        </button>
+      </div>
+
+      <div class="controls-panel">
+        <p class="controls-label">
+          <i class="ti ti-arrows-move" aria-hidden="true" style="font-size:14px;"></i>
+          Camera control
+        </p>
+        <div class="dpad">
+          <span></span>
+          <button aria-label="Tilt up" data-dir="up"><i class="ti ti-chevron-up" aria-hidden="true"></i></button>
+          <span></span>
+          <button aria-label="Pan left" data-dir="left"><i class="ti ti-chevron-left" aria-hidden="true"></i></button>
+          <button aria-label="Home position" data-dir="home"><i class="ti ti-home" aria-hidden="true" style="font-size:13px;"></i></button>
+          <button aria-label="Pan right" data-dir="right"><i class="ti ti-chevron-right" aria-hidden="true"></i></button>
+          <span></span>
+          <button aria-label="Tilt down" data-dir="down"><i class="ti ti-chevron-down" aria-hidden="true"></i></button>
+          <span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="log-header">
+        <div class="log-header-row">
+          <span class="log-title">Event log</span>
+          <button class="csv-btn" id="csv-btn" aria-label="Download event log as CSV">
+            <i class="ti ti-download" aria-hidden="true" style="font-size:13px;"></i> CSV
+          </button>
+        </div>
+        <div class="filter-chips" role="group" aria-label="Filter by event type">
+          <button class="chip active" data-filter="all">All</button>
+          <button class="chip" data-filter="motion">Motion</button>
+          <button class="chip" data-filter="person">Person</button>
+        </div>
+      </div>
+
+      <div class="event-list" id="event-list"></div>
+
+      <div class="log-footer">
+        <span id="event-count"></span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
