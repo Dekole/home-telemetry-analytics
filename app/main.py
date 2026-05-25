@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse
 
 import db
 from api.events import router as events_router
+from api.ptz import router as ptz_router
 import collector
 from collector import run_collector
 
@@ -28,6 +29,7 @@ async def lifespan(application: FastAPI):
 
 app = FastAPI(title="home-telemetry-analytics", lifespan=lifespan)
 app.include_router(events_router)
+app.include_router(ptz_router)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 

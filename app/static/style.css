@@ -237,3 +237,24 @@ body {
   margin-top: auto;
 }
 .log-footer span { font-size: 11px; color: #888780; }
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 18px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #fff;
+  z-index: 1000;
+  pointer-events: none;
+  animation: toast-in 0.15s ease;
+}
+.toast-ok  { background: #3b6d11; }
+.toast-err { background: #b91c1c; }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}

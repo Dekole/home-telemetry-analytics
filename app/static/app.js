@@ -76,6 +76,36 @@ setInterval(() => {
   document.getElementById('clock').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }, 1000);
 
+// Toast
+function showToast(msg, ok = true) {
+  const t = document.createElement('div');
+  t.className = 'toast ' + (ok ? 'toast-ok' : 'toast-err');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2000);
+}
+
+// PTZ
+document.querySelectorAll('.dpad button').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const dir = btn.dataset.dir;
+    try {
+      const res = await fetch('/ptz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ direction: dir }),
+      });
+      if (res.ok) {
+        showToast(`PTZ: ${dir}`);
+      } else {
+        showToast(`PTZ failed (${res.status})`, false);
+      }
+    } catch {
+      showToast('PTZ error', false);
+    }
+  });
+});
+
 // Video player
 const HLS_URL = `http://${window.location.hostname}:8888/cam/index.m3u8`;
 
