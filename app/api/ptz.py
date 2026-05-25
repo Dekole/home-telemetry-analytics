@@ -1,7 +1,9 @@
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, field_validator
+
+import camera.client as cam
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -23,4 +25,9 @@ class PTZCommand(BaseModel):
 @router.post("/ptz")
 async def ptz(cmd: PTZCommand):
     logger.info("PTZ command: %s", cmd.direction)
+    try:
+        await cam.move(cmd.direction)
+    except Exception as e:
+        logger.exception("PTZ move failed")
+        raise HTTPException(status_code=502, detail=str(e))
     return {"status": "ok"}

@@ -7,6 +7,9 @@ from pytapo import Tapo
 logger = logging.getLogger(__name__)
 
 _camera: Tapo | None = None
+_lock = asyncio.Lock()
+
+PTZ_STEP = 10  # degrees per d-pad press
 
 
 def _connect() -> Tapo:
@@ -33,6 +36,38 @@ def _get_events_sync() -> list[dict]:
         return _camera.getEvents()
 
 
+def _move_sync(direction: str) -> None:
+    global _camera
+    if _camera is None:
+        _connect()
+    try:
+        _do_move(direction)
+    except Exception:
+        logger.warning("PTZ call failed, reconnecting")
+        _connect()
+        _do_move(direction)
+
+
+def _do_move(direction: str) -> None:
+    if direction == "home":
+        _camera.calibrateMotor()
+    elif direction == "up":
+        _camera.moveMotor(0, PTZ_STEP)
+    elif direction == "down":
+        _camera.moveMotor(0, -PTZ_STEP)
+    elif direction == "left":
+        _camera.moveMotor(-PTZ_STEP, 0)
+    elif direction == "right":
+        _camera.moveMotor(PTZ_STEP, 0)
+
+
 async def get_events() -> list[dict]:
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _get_events_sync)
+    async with _lock:
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, _get_events_sync)
+
+
+async def move(direction: str) -> None:
+    async with _lock:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, _move_sync, direction)
